@@ -44,8 +44,8 @@ if [ ! -f "$outdir/prefix2.mag.gz" ]
 then
 	echo "$pos assemble fail"
 else
-        zless $outdir/prefix2.mag.gz|awk '{if(NR%4==1) {printf(">%s\n",substr($0,2));} else if(NR%4==2) print;}'  > $outdir/prefix2.mag.fa
-        zless $outdir/prefix2.mag.gz|awk '{if(NR%4==1) {printf(">%s\n",substr($0,2));} else if(NR%4==2) print;}' | while read L; do  echo $L|awk '{print $1"_r"}' >>$outdir/prefix2.mag.fa; read L; echo "$L" | rev | tr "ATGC" "TACG" >>$outdir/prefix2.mag.fa; done
+        zcat $outdir/prefix2.mag.gz|awk '{if(NR%4==1) {printf(">%s\n",substr($0,2));} else if(NR%4==2) print;}'  > $outdir/prefix2.mag.fa
+        zcat $outdir/prefix2.mag.gz|awk '{if(NR%4==1) {printf(">%s\n",substr($0,2));} else if(NR%4==2) print;}' | while read L; do  echo $L|awk '{print $1"_r"}' >>$outdir/prefix2.mag.fa; read L; echo "$L" | rev | tr "ATGC" "TACG" >>$outdir/prefix2.mag.fa; done
 
         blastn -num_threads $thread -query $outdir/prefix2.mag.fa -out $outdir/prefix2.mag.blast -db $ref -outfmt 6 -strand plus  -penalty -1 -reward 1 -gapopen 4 -gapextend 1 
         less $outdir/prefix2.mag.blast |cut -f 1|sort|uniq > $outdir/id.list
