@@ -7,6 +7,12 @@ rlen=$4
 
 bedfile=$5
 thread=$6
+force_fermikit_single_thread=${7:-0}
+
+fermikit_thread=$thread
+if [ "$force_fermikit_single_thread" = "1" ]; then
+    fermikit_thread=1
+fi
 
 # Ensure the dir is set relative to the actual path, links should be resolved
 # so that this script can be linked somewhere else.
@@ -36,7 +42,7 @@ if [ ! -f "$outdir/extract.fa" ]
 then
 	echo "$pos noreads"
 else
-fermi2.pl unitig -s1k -t $thread  -T 10 -2 -l $rlen -p $outdir/prefix2 $outdir/extract.fa > $outdir/prefix2.mak
+fermi2.pl unitig -s1k -t $fermikit_thread  -T 10 -2 -l $rlen -p $outdir/prefix2 $outdir/extract.fa > $outdir/prefix2.mak
 
 make -f $outdir/prefix2.mak
 
