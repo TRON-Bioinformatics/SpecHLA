@@ -19,4 +19,4 @@ run_test pacbio/test_pacbio.sh
 run_test whole/test_whole.sh
 
 # Ran last, depends on test output for whole.
-run_test whole/test_hla_loh.sh
+run_test hla_loh/test_hla_loh.sh
