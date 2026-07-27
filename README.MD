@@ -217,6 +217,7 @@ Options:
             Default is Unknown, meaning use mean allele frequency in all populations. nonuse indicates
             only adopting mapping score and considering zero-frequency alleles.
   -j        Number of threads [5].
+  -F        Force fermikit de-novo assembly to run single-threaded for reproducibility.
   -t        Pacbio fastq file.
   -e        Nanopore fastq file.
   -c        fwd hi-c fastq file.

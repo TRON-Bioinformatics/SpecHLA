@@ -24,6 +24,7 @@ set -euo pipefail
 ###             Default is Unknown, meaning use mean allele frequency in all populations. nonuse indicates  
 ###             only adopting mapping score and considering zero-frequency alleles. 
 ###   -j        Number of threads [5].
+###   -F        Force fermikit de-novo assembly to run single-threaded for reproducibility.
 ###   -t        Pacbio fastq file.
 ###   -e        Nanopore fastq file.
 ###   -c        fwd hi-c fastq file.
@@ -62,7 +63,9 @@ if [[ $# == 0 ]] || [[ "$1" == "-h" ]]; then
     exit 1
 fi
 
-while getopts ":n:1:2:p:f:m:v:q:t:a:e:x:c:d:r:y:o:j:w:u:s:g:k:z:y:f:b:" opt; do
+force_fermikit_single_thread=0
+
+while getopts ":n:1:2:p:f:m:v:q:t:a:e:x:c:d:r:y:o:j:w:u:s:g:k:z:y:f:b:F" opt; do
   case $opt in
     n) sample="$OPTARG"
     ;;
@@ -95,6 +98,8 @@ while getopts ":n:1:2:p:f:m:v:q:t:a:e:x:c:d:r:y:o:j:w:u:s:g:k:z:y:f:b:" opt; do
     o) given_outdir="$OPTARG"
     ;;
     j) num_threads="$OPTARG"
+    ;;
+    F) force_fermikit_single_thread=1
     ;;
     w) weight_imb="$OPTARG"
     ;;
@@ -233,7 +238,7 @@ if [ $focus_exon_flag == 1 ];then #exon
 else # full length
   assemble_region=$dir/select.region.txt
 fi
-bash $dir/../run.assembly.realign.sh $sample $outdir/$sample.merge.bam $outdir 70 $assemble_region ${num_threads:-5}
+bash $dir/../run.assembly.realign.sh $sample $outdir/$sample.merge.bam $outdir 70 $assemble_region ${num_threads:-5} ${force_fermikit_single_thread:-0}
 freebayes -a -f $hlaref -p 3 $outdir/$sample.realign.sort.bam > $outdir/$sample.realign.vcf && \
 rm -rf $outdir/$sample.realign.vcf.gz 
 bgzip -f $outdir/$sample.realign.vcf
