@@ -112,8 +112,6 @@ class Pacbio_Binning():
     def __init__(self):
         
          
-        # self.db = f"{sys.path[0]}/../db/ref/hla_gen.format.filter.extend.DRB.no26789.fasta"
-        # self.db = f"{sys.path[0]}/../db/ref/hla_gen.format.filter.extend.DRB.no26789.v2.fasta"
         self.db = f"""{args["db"]}/ref/hla_gen.format.filter.extend.DRB.no26789.fasta"""
         self.map2db()
         self.sam = f"{parameter.outdir}/{parameter.sample}.db.bam"
@@ -369,7 +367,6 @@ if __name__ == "__main__":
         print ("Sequence is reconstructed, start annotation...")
         fa.annotation()
     print ("Finished.")
-
 
 
 

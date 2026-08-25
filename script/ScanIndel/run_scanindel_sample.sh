@@ -11,7 +11,7 @@ script_path=$(dirname $(realpath $0))
 pdir=$(cd $script_path; pwd)
 source "$pdir/../spechla_env.sh"
 
-db=${SPECHLA_DB:-$pdir/../../db}
+db=$SPECHLA_DB
 
 outdir=$dir/Scanindel
 mkdir -p $outdir
@@ -34,4 +34,3 @@ for hla in ${HLAs[@]}; do
                 echo "We found no long-indel for $hla."
         fi
 done
-

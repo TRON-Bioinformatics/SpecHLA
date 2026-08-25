@@ -3,7 +3,8 @@ use FindBin qw($Bin);
 use Getopt::Long;
 
 my ($sample, $dir, $pop, $wxs, $g_nom, $help, $db);
-$db=$ENV{SPECHLA_DB} ? "$ENV{SPECHLA_DB}/HLA" : "$Bin/../../db/HLA";
+die "SPECHLA_DB is required; build a reference first\n" unless $ENV{SPECHLA_DB};
+$db="$ENV{SPECHLA_DB}/HLA";
 $g_nom=0;
 GetOptions(
            "s=s"     =>      \$sample,

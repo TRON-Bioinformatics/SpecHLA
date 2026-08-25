@@ -125,7 +125,7 @@ if test -v CONDA_ENV; then
 fi
 
 bin=$dir/../../bin
-db=$dir/../../db
+db=$SPECHLA_DB
 hlaref=$db/ref/hla.ref.extend.fa
 
 if [ ${given_outdir:-NA} == NA ]

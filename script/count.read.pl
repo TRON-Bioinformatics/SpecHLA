@@ -2,7 +2,8 @@
 use FindBin qw($Bin);
 
 my ($dir) = @ARGV;
-my $db=$ENV{SPECHLA_DB} ? "$ENV{SPECHLA_DB}/ref" : "$Bin/../db/ref";
+die "SPECHLA_DB is required; build a reference first\n" unless $ENV{SPECHLA_DB};
+my $db="$ENV{SPECHLA_DB}/ref";
 my %hash;
 open LI, "$db/DRB1_dup_extract_ref.fasta.fai" or die "$!\tfile1\n";
 #open LI, "/mnt/disk2_workspace/wangmengyao/NeedleHLA/GA_rich/DRB1/bwa/DRB1_dup_extract_ref.fasta.fai" or die "$!\n";

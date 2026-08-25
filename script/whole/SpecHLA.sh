@@ -203,7 +203,7 @@ fi
 if [ -f "$license" ];then
     echo "Detect novoalign license, use novoalign."
     if [ ! -f "$db/ref/$database_prefix.ndx" ];then
-        echo "Can't find ref index for novoalign, please run *bash index.sh* again."
+        echo "Can't find ref index for novoalign, please rebuild the reference."
         exit 1
     fi
     novoalign -d $db/ref/$database_prefix.ndx -f $fq1 $fq2 -F STDFQ -o SAM \

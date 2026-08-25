@@ -3,7 +3,8 @@ use FindBin qw($Bin);
 use Getopt::Long;
 
 my ($sample, $gene, $dir, $pop, $help, $db);
-$db=$ENV{SPECHLA_DB} ? "$ENV{SPECHLA_DB}/HLA" : "$Bin/../../db/HLA";
+die "SPECHLA_DB is required; build a reference first\n" unless $ENV{SPECHLA_DB};
+$db="$ENV{SPECHLA_DB}/HLA";
 GetOptions(
            "s=s"     =>      \$sample,
            "g=s"     =>      \$gene,
@@ -32,7 +33,6 @@ print "parameter:\tsample:$sample\tdir:$dir\tpop:$pop\tgene:$gene\tdb:$db\n";
 
 my $k = 2;
 my (%hashp, %hashpp, %hashg, %hashc, %hash,%hashdd);
-# my $db="$Bin/../../db/HLA";
 my $fadir=$dir;
 my $workdir = "$dir/tmp";
 `mkdir  -p $workdir`;
@@ -203,5 +203,3 @@ while(my $file=<TE>){
 `rm -rf $dir/$class.total.fasta`;
  close SOUT;
      
-
-
