@@ -4,7 +4,7 @@ Centralized path resolution for SpecHLA.
 Priority chain:
   1. SPECHLA_DB env var (user override)
   2. $CONDA_PREFIX/share/spechla/db (conda install)
-  3. Relative to this file (development install, compatibility mode)
+  3. No implicit database fallback
 
 Usage:
   from spechla_paths import get_db_dir, get_script_dir
@@ -38,14 +38,12 @@ def _setup_dev_path():
 def get_db_dir():
     _setup_dev_path()
     env = os.environ.get('SPECHLA_DB', '')
-    if env and os.path.isdir(env):
+    if env and os.path.isdir(os.path.join(env, 'HLA')):
         return env
     conda = os.environ.get('CONDA_PREFIX', '')
     conda_db = os.path.join(conda, 'share', 'spechla', 'db')
-    if conda and os.path.isdir(conda_db):
+    if conda and os.path.isdir(os.path.join(conda_db, 'HLA')):
         return conda_db
-    if os.environ.get('SPECHLA_ALLOW_INTREE_DB', '1') == '1':
-        return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'db'))
     raise RuntimeError(
         'SpecHLA reference not found. Set SPECHLA_DB to a directory built by '
         'script/build_reference.sh.'

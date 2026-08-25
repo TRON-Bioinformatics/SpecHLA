@@ -39,6 +39,10 @@ if [ -z "$IMGT" ] || [ -z "$OUT" ]; then
     usage >&2
     exit 2
 fi
+if [ -e "$OUT/ref/hla.ref.extend.fa.bwt" ] && [ "$FORCE" = 0 ]; then
+    echo "Reference already exists at $OUT; use --force to rebuild" >&2
+    exit 2
+fi
 if [ ! -d "$IMGT" ]; then
     echo "IMGT/HLA directory does not exist: $IMGT" >&2
     exit 2
@@ -152,3 +156,51 @@ for fasta in "$OUT"/ref/hla_gen.format.filter.extend.DRB.no26789*.fasta; do
     fi
     bowtie2-build --threads "$THREADS" "$fasta" "$fasta"
 done
+
+if command -v longranger >/dev/null 2>&1; then
+    (cd "$OUT/ref" && longranger mkref hla.ref.extend.fa)
+else
+    echo "[build_reference] longranger not on PATH; 10X data will require manual mkref" >&2
+fi
+
+IMGT_VERSION=$(awk -F': ' '/^# version:/{print $2; exit}' "$IMGT/Allelelist.txt")
+SPECHLA_REF=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'unknown')
+"$PYTHON" - "$OUT/BUILD_MANIFEST.json" "$IMGT_VERSION" "$IMGT" "$SPECHLA_REF" \
+    "$REPRESENTATIVES" "$ASSETS" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+manifest, version, source, ref, representatives, assets = sys.argv[1:]
+selected = {}
+with open(representatives) as handle:
+    for line in handle:
+        line = line.strip()
+        if line and not line.startswith("#"):
+            gene, allele = line.split("\t")[:2]
+            selected[gene] = allele
+asset_hashes = {}
+for name in os.listdir(assets):
+    path = os.path.join(assets, name)
+    if os.path.isfile(path):
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+        asset_hashes[name] = digest.hexdigest()
+payload = {
+    "imgt_version": version,
+    "imgt_source": os.path.abspath(source),
+    "built_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    "spechla_ref": ref,
+    "representative_alleles": selected,
+    "bundled_assets_sha256": asset_hashes,
+}
+with open(manifest, "w") as handle:
+    json.dump(payload, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+PY
+
+rm -rf "$OUT/.build_tmp"
