@@ -21,7 +21,8 @@ def read_fasta(path):
             if line.startswith(">"):
                 if name is not None:
                     records[name] = "".join(sequence)
-                name = line[1:].split()[0]
+                fields = line[1:].split()
+                name = fields[1] if len(fields) > 1 else fields[0]
                 sequence = []
             else:
                 if name is None:
