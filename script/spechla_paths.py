@@ -4,7 +4,7 @@ Centralized path resolution for SpecHLA.
 Priority chain:
   1. SPECHLA_DB env var (user override)
   2. $CONDA_PREFIX/share/spechla/db (conda install)
-  3. Relative to this file (development install)
+  3. Relative to this file (development install, compatibility mode)
 
 Usage:
   from spechla_paths import get_db_dir, get_script_dir
@@ -44,7 +44,24 @@ def get_db_dir():
     conda_db = os.path.join(conda, 'share', 'spechla', 'db')
     if conda and os.path.isdir(conda_db):
         return conda_db
-    return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'db'))
+    if os.environ.get('SPECHLA_ALLOW_INTREE_DB', '1') == '1':
+        return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'db'))
+    raise RuntimeError(
+        'SpecHLA reference not found. Set SPECHLA_DB to a directory built by '
+        'script/build_reference.sh.'
+    )
+
+def get_imgt_dir():
+    env = os.environ.get('SPECHLA_IMGT', '')
+    if env and os.path.isdir(env):
+        return env
+    conda = os.environ.get('CONDA_PREFIX', '')
+    conda_imgt = os.path.join(conda, 'share', 'spechla', 'imgt')
+    if conda and os.path.isdir(conda_imgt):
+        return conda_imgt
+    raise RuntimeError(
+        'IMGT/HLA source not found. Set SPECHLA_IMGT to a local IMGT/HLA clone.'
+    )
 
 def get_script_dir():
     _setup_dev_path()

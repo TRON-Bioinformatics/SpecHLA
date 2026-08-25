@@ -4,7 +4,7 @@
 # Priority chain:
 #   1. SPECHLA_DB env var (user override)
 #   2. $CONDA_PREFIX/share/spechla/db (conda install)
-#   3. Relative to this script (development install)
+#   3. Relative to this script (development install, compatibility mode)
 #
 # Source this from other bash scripts:
 #   source "$(dirname $(realpath $0))/spechla_env.sh"   # from script/
@@ -16,13 +16,22 @@ if [ -n "${_SPECHLA_ENV_SOURCED:-}" ]; then
 fi
 _SPECHLA_ENV_SOURCED=1
 
+if [ -z "${SPECHLA_ALLOW_INTREE_DB:-}" ]; then
+    SPECHLA_ALLOW_INTREE_DB=1
+fi
+
 if [ -z "${SPECHLA_DB:-}" ] || [ ! -d "$SPECHLA_DB" ]; then
     if [ -n "${CONDA_PREFIX:-}" ] && [ -d "$CONDA_PREFIX/share/spechla/db" ]; then
         SPECHLA_DB="$CONDA_PREFIX/share/spechla/db"
-    else
+    elif [ "$SPECHLA_ALLOW_INTREE_DB" = 1 ]; then
         _spechla_root=$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.." && pwd)
         SPECHLA_DB="$_spechla_root/db"
     fi
+fi
+
+if [ -z "${SPECHLA_IMGT:-}" ] && [ -n "${CONDA_PREFIX:-}" ] \
+    && [ -d "$CONDA_PREFIX/share/spechla/imgt" ]; then
+    SPECHLA_IMGT="$CONDA_PREFIX/share/spechla/imgt"
 fi
 
 if [ -z "${SPECHLA_SCRIPT:-}" ] || [ ! -d "$SPECHLA_SCRIPT" ]; then
@@ -43,4 +52,6 @@ if [ -z "${CONDA_PREFIX:-}" ] || [ ! -d "$CONDA_PREFIX/share/spechla" ]; then
 fi
 
 export SPECHLA_DB
+export SPECHLA_IMGT
+export SPECHLA_ALLOW_INTREE_DB
 export SPECHLA_SCRIPT
