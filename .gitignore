@@ -19,6 +19,8 @@ bin/IMGTHLA
 *config.txt
 db/HLA/whole/hla_gen.fasta
 *.mmi
+/db/
+/.build_tmp/
 
 # Python cache directories
 **/__pycache__
