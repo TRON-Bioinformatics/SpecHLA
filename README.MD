@@ -87,7 +87,7 @@ Note:
 - SpecHLA optionally uses [Novoalign](https://www.novocraft.com/buy-now/) for
   improved read mapping. If not detected, `bowtie2` is used automatically.
   - **From source**: Put `novoalign.lic` in the `bin/` folder before running
-    `bash index.sh`.
+    `bash install.sh`.
   - **Conda install**: Install novoalign separately and place `novoalign.lic`
     next to the `novoalign` binary (e.g., `$CONDA_PREFIX/bin/novoalign.lic`).
 - If you want to run SpecHLA with `only` long-read data, there is no need for
@@ -296,7 +296,7 @@ Optional arguments:
   -y                  Read type, [nanopore|pacbio]. (default: pacbio)
   --minimap_index     Whether build Minimap2 index for the reference [0|1]. Using index can reduce memory usage.
                         (default: 0)
-  --db                db dir. (default: /home/wangshuai/softwares/SpecHLA/script/../db/)
+  --db                built reference directory (set SPECHLA_DB or pass explicitly).
   --strand_bias_pvalue_cutoff
                         Remove a variant if the allele observations are biased toward one strand (forward or reverse).
                         Recommand setting 0 to high-depth data. (default: 0.01)
