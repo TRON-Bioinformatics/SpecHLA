@@ -70,6 +70,7 @@ if [ ! -f "$GEN" ]; then
 fi
 
 mkdir -p "$OUT/HLA/whole" "$OUT/HLA/exon"
+mkdir -p "$OUT/.build_tmp"
 if [ "$FORCE" = 1 ]; then
     rm -f "$OUT/HLA/hla.ref.extend.fa" "$OUT/ref/hla.ref.extend.fa"
 fi
@@ -125,7 +126,8 @@ makeblastdb -in "$OUT/HLA/hla_exons.fasta" -dbtype nucl -parse_seqids \
 "$PYTHON" "$ROOT/script/build_reference/construct_extended.py" \
     --gen "$GEN" --extend "$ASSETS/extend.fa" \
     --representatives "$REPRESENTATIVES" \
-    --out "$OUT/HLA/hla.ref.extend.fa"
+    --out "$OUT/HLA/hla.ref.extend.fa" \
+    --selected-out "$OUT/.build_tmp/selected_representatives.json"
 samtools faidx "$OUT/HLA/hla.ref.extend.fa"
 cp "$OUT/HLA/hla.ref.extend.fa" "$OUT/ref/hla.ref.extend.fa"
 cp "$OUT/HLA/hla.ref.extend.fa.fai" "$OUT/ref/hla.ref.extend.fa.fai"
@@ -171,21 +173,16 @@ fi
 IMGT_VERSION=$(awk -F': ' '/^# version:/{print $2; exit}' "$IMGT/Allelelist.txt")
 SPECHLA_REF=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'unknown')
 "$PYTHON" - "$OUT/BUILD_MANIFEST.json" "$IMGT_VERSION" "$IMGT" "$SPECHLA_REF" \
-    "$REPRESENTATIVES" "$ASSETS" <<'PY'
+    "$OUT/.build_tmp/selected_representatives.json" "$ASSETS" <<'PY'
 import hashlib
 import json
 import os
 import sys
 from datetime import datetime, timezone
 
-manifest, version, source, ref, representatives, assets = sys.argv[1:]
-selected = {}
-with open(representatives) as handle:
-    for line in handle:
-        line = line.strip()
-        if line and not line.startswith("#"):
-            gene, allele = line.split("\t")[:2]
-            selected[gene] = allele
+manifest, version, source, ref, selected_path, assets = sys.argv[1:]
+with open(selected_path) as handle:
+    selected = json.load(handle)
 asset_hashes = {}
 for name in os.listdir(assets):
     path = os.path.join(assets, name)

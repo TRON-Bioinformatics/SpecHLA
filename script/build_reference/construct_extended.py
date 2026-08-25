@@ -2,6 +2,7 @@
 """Construct the one-record-per-gene extended reference."""
 
 import argparse
+import json
 import re
 
 
@@ -61,6 +62,7 @@ def main():
     parser.add_argument("--extend", required=True)
     parser.add_argument("--representatives", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--selected-out")
     args = parser.parse_args()
 
     alleles = read_fasta(args.gen)
@@ -80,6 +82,10 @@ def main():
             chosen[gene] = allele
             sequence = flanks["HLA_%s_1" % gene] + alleles[allele] + flanks["HLA_%s_2" % gene]
             output.write(">HLA_%s\n%s\n" % (gene, sequence))
+    if args.selected_out:
+        with open(args.selected_out, "w") as selected_file:
+            json.dump(chosen, selected_file, indent=2, sort_keys=True)
+            selected_file.write("\n")
     return chosen
 
 
