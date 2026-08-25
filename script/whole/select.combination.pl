@@ -3,8 +3,7 @@ use FindBin qw($Bin);
 use Getopt::Long;
 
 my ($sample, $gene, $dir, $pop, $help, $db);
-die "SPECHLA_DB is required; build a reference first\n" unless $ENV{SPECHLA_DB};
-$db="$ENV{SPECHLA_DB}/HLA";
+$db=$ENV{SPECHLA_DB} ? "$ENV{SPECHLA_DB}/HLA" : undef;
 GetOptions(
            "s=s"     =>      \$sample,
            "g=s"     =>      \$gene,
@@ -27,7 +26,9 @@ usage: perl $0 [options]
 e.g.:
         perl $0 -s samplename -g HLA_A -i indir -p Unknown 
 USE
+die $usage if ($help);
 die $usage unless ($sample && $dir && $pop && $gene) ;
+die "SPECHLA_DB or -d is required; build a reference first\n" unless $db;
 
 print "parameter:\tsample:$sample\tdir:$dir\tpop:$pop\tgene:$gene\tdb:$db\n";
 

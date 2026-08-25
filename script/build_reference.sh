@@ -90,7 +90,12 @@ else
 fi
 if command -v makeblastdb >/dev/null 2>&1; then
     for fasta in "$OUT"/HLA/whole/*.fasta "$OUT"/HLA/exon/*.fasta; do
-        makeblastdb -in "$fasta" -dbtype nucl -parse_seqids -out "${fasta%.fasta}"
+        if [[ "$fasta" == */exon/* ]]; then
+            blast_prefix="$fasta"
+        else
+            blast_prefix="${fasta%.fasta}"
+        fi
+        makeblastdb -in "$fasta" -dbtype nucl -parse_seqids -out "$blast_prefix"
     done
 else
     echo "makeblastdb is required to index the generated FASTA files" >&2
