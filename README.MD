@@ -57,8 +57,18 @@ Third, index the database and install the packages.
 
 ```
 unset LD_LIBRARY_PATH && unset LIBRARY_PATH
-bash index.sh
+bash install.sh
 ```
+
+Build an HLA reference separately from a local IMGT/HLA checkout:
+
+```
+bash script/build_reference.sh --imgt /data/imgt/IMGTHLA --out /data/spechla-ref
+export SPECHLA_DB=/data/spechla-ref
+```
+
+(The conda package installs the same script as the `spechla-build-reference`
+command.)
 
 Perform SpecHLA with
 
@@ -81,7 +91,7 @@ Note:
   - **Conda install**: Install novoalign separately and place `novoalign.lic`
     next to the `novoalign` binary (e.g., `$CONDA_PREFIX/bin/novoalign.lic`).
 - If you want to run SpecHLA with `only` long-read data, there is no need for
-  the `Novoalign` license and running `bash index.sh`. You need only construct
+  the   `Novoalign` license and running `bash install.sh`. You need only construct
   the environment from
   `conda env create --prefix=./spechla_env -f long_only_env.yml`. To extract
   HLA-related reads, pls use the full environment.
@@ -243,7 +253,7 @@ Options:
   -f        The trio infromation; child:parent_1:parent_2 [Example: NA12878:NA12891:NA12892]. If provided,
             use trio info to improve typing. Note: use it after performing SpecHLA once already.
   -b        Whether use database for unlinked block phasing [0|1], default is 1 (i.e., use).
-  -i        Location of the IMGT/HLA database folder, default is db.
+  -i        Location of the built HLA reference; defaults to SPECHLA_DB.
   -l        Whether remove all tmp files [0|1], default is 1.
   -h        Show this message.
 ```
@@ -468,18 +478,18 @@ Please refer to https://github.com/deepomicslab/SpecHLA/issues/23#issue
 To map detected variants onto `hg38`, please use the script of @pjgreer --
 https://github.com/pjgreer/Informatics-Tools
 
-## Update to latest IMGT/HLA database
+## Setting up the HLA reference
 
-To nomenclature the HLA alleles using the latest IMGT/HLA database, please
-execute the following command:
+SpecHLA does not ship a pre-built HLA reference. Clone IMGT/HLA somewhere
+read-only, then build and select the resulting reference:
 
 ```
-cd SpecHLA/bin
-perl renew_HLA_annotation_db.pl
+git clone --depth 1 https://github.com/ANHIG/IMGTHLA.git /data/imgt/IMGTHLA
+spechla-build-reference --imgt /data/imgt/IMGTHLA --out /data/spechla-ref
+export SPECHLA_DB=/data/spechla-ref
 ```
 
-This script will download the latest IMGT/HLA database from Github, and
-preprocess it for SpecHLA to use.
+To upgrade IMGT, update the checkout and build a new output directory.
 
 ## Dependencies
 

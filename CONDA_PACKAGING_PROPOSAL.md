@@ -180,16 +180,18 @@ The current `index.sh` performs four tasks. In a conda install, most are handled
 | Symlink libncurses | Not needed (conda handles deps) | Remove |
 | Build SpecHap/ExtractHAIRs | Done by CMake in build recipe | Keep in `index.sh` |
 
-Update `index.sh` to use `spechla_env.sh` for path resolution, and change novoalign detection from checking a vendored binary to checking if `novoalign` is on PATH.
+The native build is now handled by `install.sh`; reference construction is
+performed separately with `spechla-build-reference`.
 
 ### 6. Database Handling
 
-The `db/` directory (163MB) will be **bundled inside the conda package** at `$PREFIX/share/spechla/db/`. This is standard practice for bioconda tools with reference databases of this size.
+The generated `db/` directory is not bundled. The conda package ships only
+the immutable construction assets under
+`$PREFIX/share/spechla/reference_assets/`; users build a reference after
+installation with `spechla-build-reference`.
 
-The database includes:
-- HLA allele sequences and frequency tables (`db/HLA/`, 106MB)
-- Reference FASTA files with pre-built BWA/BLAST indexes (`db/ref/`, 57MB)
-- Bowtie2 indexes are built at conda install time (not pre-existing in the repo)
+The assets include population frequencies, curated DRB1 references, flanks,
+representative alleles, and the bundled read-binning FASTA inputs.
 
 ### 7. Entry Point Wrappers
 
@@ -261,11 +263,8 @@ requirements:
 
 1. Build SpecHap and ExtractHAIRs via CMake with `CMAKE_INSTALL_PREFIX=$PREFIX`
 2. Copy `script/` to `$PREFIX/share/spechla/script/`
-3. Copy `db/` to `$PREFIX/share/spechla/db/`
-4. Install utility scripts to `$PREFIX/bin/`
-5. Generate HLA config files with correct paths
-6. Build bowtie2 indexes
-7. Install wrapper scripts to `$PREFIX/bin/`
+3. Copy `share/reference_assets/` to `$PREFIX/share/spechla/reference_assets/`
+4. Install utility scripts and the `spechla-build-reference` wrapper
 
 ---
 
