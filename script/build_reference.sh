@@ -44,7 +44,8 @@ if [ ! -d "$IMGT" ]; then
     exit 2
 fi
 if [ ! -f "$IMGT/hla_nuc.fasta" ] || [ ! -f "$IMGT/Allelelist.txt" ] \
-    || [ ! -f "$IMGT/wmda/hla_nom_g.txt" ]; then
+    || [ ! -f "$IMGT/wmda/hla_nom_g.txt" ] \
+    || { [ ! -f "$IMGT/xml/hla.xml" ] && [ ! -f "$IMGT/xml/hla.xml.zip" ]; }; then
     echo "IMGT/HLA clone is missing required files" >&2
     exit 2
 fi
@@ -99,6 +100,18 @@ cp "$ASSETS/DRB1_dup_extract.fasta" "$OUT/ref/"
 cp "$ASSETS/DRB1_dup_extract_ref.fasta" "$OUT/ref/"
 cp "$ASSETS/hla_gen.format.filter.extend.DRB.no26789.fasta" "$OUT/ref/"
 cp "$ASSETS/hla_gen.format.filter.extend.DRB.no26789.v2.fasta" "$OUT/ref/"
+
+XML="$IMGT/xml/hla.xml"
+if [ ! -f "$XML" ]; then
+    mkdir -p "$OUT/.build_tmp"
+    unzip -oq "$IMGT/xml/hla.xml.zip" -d "$OUT/.build_tmp"
+    XML="$OUT/.build_tmp/hla.xml"
+fi
+"$PYTHON" "$ROOT/script/build_reference/extract_exons_from_xml.py" \
+    --xml "$XML" --out "$OUT/HLA/hla_exons.fasta"
+samtools faidx "$OUT/HLA/hla_exons.fasta"
+makeblastdb -in "$OUT/HLA/hla_exons.fasta" -dbtype nucl -parse_seqids \
+    -out "$OUT/HLA/hla_exons.fasta"
 
 "$PYTHON" "$ROOT/script/build_reference/construct_extended.py" \
     --gen "$GEN" --extend "$ASSETS/extend.fa" \
