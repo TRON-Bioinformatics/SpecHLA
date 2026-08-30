@@ -1,0 +1,28 @@
+# Central definition of the HLA genes covered by a SpecHLA reference.
+#
+# Every gene listed here is built into the reference and every downstream step
+# iterates over exactly this list. Editing this file (adding, removing or
+# reordering genes, or changing the representative allele) is the supported way
+# to change the gene content of a reference; no other file needs to be touched.
+#
+# Columns:
+#   gene                   IMGT/HLA gene symbol, without the "HLA-" prefix.
+#   hla_class              I or II. Controls which exons define the G group
+#                          (exon 2+3 for class I, exon 2 for class II) and how
+#                          many leading exons are recorded in exon_extent.bed.
+#   representative_allele  Allele whose genomic sequence becomes the single
+#                          record "HLA_<gene>" of hla.ref.extend.fa. If the
+#                          allele is absent from the IMGT release in use, the
+#                          build falls back to the first non-null four-field
+#                          allele of the gene and records the substitution in
+#                          BUILD_MANIFEST.json.
+#
+# gene	hla_class	representative_allele
+A	I	A*01:01:01:01
+B	I	B*07:02:01:01
+C	I	C*01:02:01:01
+DPA1	II	DPA1*01:03:01:01
+DPB1	II	DPB1*01:01:01:01
+DQA1	II	DQA1*01:01:01:01
+DQB1	II	DQB1*02:01:01
+DRB1	II	DRB1*01:02:01:01

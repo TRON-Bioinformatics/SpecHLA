@@ -1,0 +1,46 @@
+# Curated regions that are re-assembled locally before variant calling.
+#
+# Coordinates are 1-based inclusive and refer to the extended per-gene
+# reference (HLA_<gene>), i.e. they already include the 5' flank from
+# extend.fa. They are therefore only valid for the representative alleles
+# listed in genes.tsv; if a representative allele is changed these regions
+# should be re-curated.
+#
+# Columns:
+#   gene   Gene symbol, must appear in genes.tsv.
+#   start  Region start on HLA_<gene>.
+#   end    Region end on HLA_<gene>.
+#   mode   whole = full-length typing only, exon = exon typing only,
+#          both  = used by either mode.
+#
+# The build writes the matching subsets to select.region.txt (whole + both)
+# and select.region.exon.txt (exon + both), restricted to the genes present
+# in the reference.
+#
+# gene	start	end	mode
+B	1500	1800	both
+DPB1	2150	2800	whole
+DPB1	9724	9950	whole
+DPB1	10000	10500	both
+DQA1	2900	3202	whole
+DQA1	3345	3812	whole
+DQA1	3900	4150	whole
+DQA1	4999	5320	whole
+DQA1	5600	5850	exon
+DQA1	5800	6150	whole
+DQA1	6550	6800	whole
+DQB1	2450	2650	whole
+DQB1	3205	4115	both
+DQB1	4100	4250	whole
+DQB1	4400	4600	whole
+DQB1	4750	5200	whole
+DQB1	5300	5700	whole
+DQB1	5800	6100	whole
+DRB1	2250	2450	whole
+DRB1	2774	3266	whole
+DRB1	3292	5120	whole
+DRB1	6700	7100	both
+DRB1	7192	7540	whole
+DRB1	8893	9299	whole
+DRB1	10032	10305	whole
+DRB1	11020	11728	whole
