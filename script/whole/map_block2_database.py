@@ -9,6 +9,9 @@ wangshuai July 8, 2022
 import sys
 import os
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from reference_config import reference
+
 
 
 
@@ -202,10 +205,7 @@ if __name__ == "__main__":
     break_point_file = outdir + "/%s_break_points_spechap.txt"%(gene)
     score_file = outdir + "/%s_break_points_score.txt"%(gene)
 
-    gene_length_dict = {'HLA_A':[1000,4503],'HLA_B':[1000,5081],'HLA_C':[1000,5304],'HLA_DPA1':[1000,10775],\
-        'HLA_DPB1':[1000,12468],'HLA_DQA1':[1000,7492],'HLA_DQB1':[1000,8480],'HLA_DRB1':[1000,12229]}
-
-    gene_length = gene_length_dict[gene][1]
+    gene_length = reference(db)[gene].end
 
 
     cons = Construct_Graph()

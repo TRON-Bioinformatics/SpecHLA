@@ -12,6 +12,9 @@ import re
 import time
 import gzip
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from reference_config import reference
+
 B = ['A', 'C', 'G', 'T']
 BN = ['A', 'C', 'G', 'T', 'N']
 
@@ -200,7 +203,7 @@ def main():
         count_read_for_each_gene[assigned_locus] += 1
  
     # generate gene-specific fastq
-    for gene in ['A', 'B', 'C', 'DPA1', 'DPB1', 'DQA1', 'DQB1', 'DRB1']:
+    for gene in reference().gene_list:
         if gene in count_read_for_each_gene:
             read_num = count_read_for_each_gene[gene]
         else:

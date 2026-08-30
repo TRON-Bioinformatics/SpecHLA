@@ -16,6 +16,7 @@ import sys
 from pysam import VariantFile
 import pickle
 from spechla_paths import get_db_dir, get_script_dir
+from reference_config import reference
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -637,10 +638,9 @@ def no_snv_gene_phased(outdir, gene):
 
     return gene_profile
 
-def focus_region():
-    # return the gene interval on the reference
-    return {'HLA_A':[1000,4503],'HLA_B':[1000,5081],'HLA_C':[1000,5304],'HLA_DPA1':[1000,10775],\
-        'HLA_DPB1':[1000,12468],'HLA_DQA1':[1000,7492],'HLA_DQB1':[1000,8480],'HLA_DRB1':[1000,12229]}
+def focus_region(db=None):
+    # the gene intervals on the reference, as recorded when it was built
+    return reference(db).focus_region()
 
 class Share_reads():
 
@@ -1720,7 +1720,7 @@ def skip_mask_region(mask_dict, gene, start, end):
     return start, end    
 
 def vcf2fasta(rephase_vcf):
-    exon_bed = "%s/whole/exon_extent.bed"%(get_script_dir())
+    exon_bed = "%s/HLA/exon_extent.bed"%(get_db_dir())
     exon_intervals = []
     f = open(exon_bed, 'r')
     for line in f:

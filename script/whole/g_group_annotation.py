@@ -14,7 +14,11 @@ import numpy as np
 from collections import Counter
 import argparse
 
-gene_list = ['A', 'B', 'C', 'DPA1', 'DPB1', 'DQA1', 'DQB1', 'DRB1']
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from reference_config import reference
+
+# Gene list comes from the reference in use (<db>/reference.json).
+gene_list = reference().gene_list
 
 def count_n_ratio(fasta_file):
     total_bases = 0
@@ -153,7 +157,7 @@ class G_annotation():
         # return sample_results
         COUT =  open(f"{self.spechla_dir}/hla.result.g.group.txt", "w")
         COUT.write(version_info)
-        COUT.write("Sample\tHLA_A_1\tHLA_A_2\tHLA_B_1\tHLA_B_2\tHLA_C_1\tHLA_C_2\tHLA_DPA1_1\tHLA_DPA1_2\tHLA_DPB1_1\tHLA_DPB1_2\tHLA_DQA1_1\tHLA_DQA1_2\tHLA_DQB1_1\tHLA_DQB1_2\tHLA_DRB1_1\tHLA_DRB1_2\n")
+        COUT.write(reference().result_header() + "\n")
         print (self.sample, end = "\t", file = COUT)
         for gene in gene_list:
             print (format_allele(sample_results[gene][0]), format_allele(sample_results[gene][1]), sep = "\t", end = "\t", file = COUT)

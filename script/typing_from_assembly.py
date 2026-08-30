@@ -14,6 +14,7 @@ import sys
 import pysam
 import argparse
 from spechla_paths import get_db_dir
+from reference_config import reference
 
 
 def get_1_element(lst):
@@ -444,7 +445,7 @@ if __name__ == "__main__":
     result_path = args['o']
     sample = args['n']
     samples_list = [sample]
-    gene_list = ["A", "B", "C", "DPA1", "DPB1", "DQA1", "DQB1", "DRB1"]
+    gene_list = reference().gene_list
     record_truth_file_dict = {sample : [args['1'], args['2']]}
 
     # create an output file for the extracted segment

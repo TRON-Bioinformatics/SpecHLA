@@ -14,9 +14,7 @@ import sys
 import argparse
 from collections import defaultdict
 
-
-gene_list = ['A', 'B', 'C', 'DPA1', 'DPB1', 'DQA1', 'DQB1', 'DRB1']
-# gene_list = ['A']
+from reference_config import reference
 
 def run_depth(args):
     cmd = f"""
@@ -61,7 +59,7 @@ class Get_depth():
         record_candidate_alleles = defaultdict(set)
         record_allele_length = {}
         for gene in self.depth_dict:
-            if gene not in gene_list:
+            if gene not in reference().gene_list:
                 continue
             record_allele_depth = {}
             

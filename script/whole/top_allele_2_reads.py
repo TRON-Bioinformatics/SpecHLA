@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from spechla_paths import get_db_dir
+from reference_config import reference
 from Bio import SeqIO
 
 outdir = sys.argv[1]
@@ -14,7 +15,7 @@ f=open(top_allele_fasta, 'w')
 f.close()
 
 def read():
-    dict = {"A":'', "B":'', "C":'', "DPA1":'',"DPB1":'',"DQA1":'',"DQB1":'',"DRB1":''}
+    dict = {gene: '' for gene in reference().gene_list}
     top_allele = []
     f = open(detail_anno, 'r')
     for line in f:

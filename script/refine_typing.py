@@ -14,6 +14,7 @@ import sys
 import pysam
 import argparse
 from spechla_paths import get_db_dir
+from reference_config import reference
 
 
 def get_1_element(lst):
@@ -281,7 +282,7 @@ if __name__ == "__main__":
 
     result_file = result_path + "/" + "hlala.like.results.txt"
     all_align_result_file = result_path + "/" + "hla.map.results.txt"
-    gene_list = ["A", "B", "C", "DPA1", "DPB1", "DQA1", "DQB1", "DRB1"]
+    gene_list = reference(args["db"]).gene_list
 
     record_best_match = {}
     blastfile = f"{result_path}/hla.blast.summary.txt"

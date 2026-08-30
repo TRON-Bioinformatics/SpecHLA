@@ -11,7 +11,7 @@ import pickle
 import sys
 import argparse
 from argparse import ArgumentTypeError
-from spechla_paths import get_script_dir
+from spechla_paths import get_db_dir, get_script_dir
 
 
 def str2bool(v):
@@ -84,7 +84,7 @@ class Mask_low():
 
 
     def read_exons(self, gene):
-        exon_bed = "%s/whole/exon_extent.bed"%(get_script_dir())
+        exon_bed = "%s/HLA/exon_extent.bed"%(get_db_dir())
         exon_intervals = []
         f = open(exon_bed, 'r')
         for line in f:

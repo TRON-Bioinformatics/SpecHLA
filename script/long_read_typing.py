@@ -10,11 +10,12 @@ import gzip
 import argparse
 from downsample_bam import main
 from spechla_paths import get_db_dir, get_script_dir
+from reference_config import reference
 
-interval_dict = {"A":"HLA_A:1000-4503", "B":"HLA_B:1000-5081","C": "HLA_C:1000-5304","DPA1":"HLA_DPA1:1000-10775",\
-    "DPB1":"HLA_DPB1:1000-12468","DQA1":"HLA_DQA1:1000-7492","DQB1":"HLA_DQB1:1000-8480","DRB1":"HLA_DRB1:1000-12229" }
-gene_list = ['A', 'B', 'C', 'DPA1', 'DPB1', 'DQA1', 'DQB1', 'DRB1']
-# gene_list = ['A']
+# Gene list and per-gene intervals come from the reference itself
+# (<db>/reference.json), so they always match the database in use.
+interval_dict = reference().interval_dict()
+gene_list = reference().gene_list
 
 
 class Read_Obj():
