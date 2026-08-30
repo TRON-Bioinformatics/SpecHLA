@@ -70,6 +70,14 @@ export SPECHLA_DB=/data/spechla-ref
 (The conda package installs the same script as the `spechla-build-reference`
 command.)
 
+The gene content of a reference is defined entirely by
+`share/reference_assets/genes.tsv` (gene, HLA class, representative allele).
+Pass `--genes-config` to use a different table, or `--genes A,DRB1` to build a
+subset. The build records the resulting gene list and the per-gene coordinates
+in `<db>/reference.json`, and every pipeline step reads them from there, so no
+script contains a hardcoded gene name or interval. See
+`share/reference_assets/README.md` for details.
+
 Perform SpecHLA with
 
 ```
