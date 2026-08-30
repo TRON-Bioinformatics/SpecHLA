@@ -22,15 +22,15 @@ rm -f $outdir/*realign.bam*
 rm -f $outdir/*realign.vcf.gz*
 rm -f $outdir/fragment*file
 rm -f  $outdir/*.R*.fq.gz
-rm -f  $outdir/A.bam*
-rm -f  $outdir/B.bam*
-rm -f  $outdir/C.bam*
-rm -f  $outdir/DPA1.bam*
-rm -f  $outdir/DPB1.bam*
-rm -f  $outdir/DQA1.bam*
-rm -f  $outdir/DQB1.bam*
-rm -f  $outdir/DRB1.bam*
-rm -f  $outdir/DRB1.hla.count
+# Gene-specific leftovers; the gene list comes from the reference in use.
+gene_list_file="${SPECHLA_DB:-}/HLA/gene_list.txt"
+if [ -s "$gene_list_file" ]; then
+    while read -r hla; do
+        [ -n "$hla" ] || continue
+        rm -f "$outdir/$hla.bam"*
+        rm -f "$outdir/$hla.hla.count"
+    done < "$gene_list_file"
+fi
 rm -f  $outdir/extract.read.blast
 rm -rf  $outdir/tmp/
 

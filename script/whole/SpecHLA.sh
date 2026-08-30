@@ -145,6 +145,15 @@ fi
 python_bin=$(which python3)
 bin=$dir/../../bin
 db=${db:-$SPECHLA_DB}
+
+# The gene content of a run is defined by the reference, never by this script.
+if [ ! -s "$db/HLA/gene_list.txt" ] || [ ! -s "$db/HLA/gene_regions.txt" ]; then
+    echo "Reference at $db has no gene_list.txt/gene_regions.txt; rebuild it with script/build_reference.sh." >&2
+    exit 1
+fi
+HLA_GENES=($(cat "$db/HLA/gene_list.txt"))
+HLA_REGIONS=$(paste -sd, "$db/HLA/gene_regions.txt")
+export SPECHLA_DB="$db"
 hlaref=$db/ref/hla.ref.extend.fa
 
 if [ ${given_outdir:-NA} == NA ]
@@ -224,15 +233,15 @@ $python_bin $dir/../assign_reads_to_genes.py -1 $fq1 -2 $fq2 -n $bin -o $outdir 
 # ########### align the gene-specific reads to the corresponding gene reference################################
 { bwa mem -U 10000 -L 10000,10000 -R $group $hlaref $fq1 $fq2 || true; } | samtools view -H >$outdir/header.sam
 #hlas=(A B C)
-hlas=(A B C DPA1 DPB1 DQA1 DQB1 DRB1)
+hlas=("${HLA_GENES[@]}")
 for hla in ${hlas[@]}; do
         hla_ref=$db/HLA/HLA_$hla/HLA_$hla.fa
         bwa mem -t ${num_threads:-5} -U 10000 -L 10000,10000 -R $group $hla_ref $outdir/$hla.R1.fq.gz $outdir/$hla.R2.fq.gz\
          | samtools view -bS -F 0x800 -| samtools sort - >$outdir/$hla.bam
         samtools index $outdir/$hla.bam
 done
-samtools merge -f -h $outdir/header.sam $outdir/$sample.merge.bam $outdir/A.bam $outdir/B.bam $outdir/C.bam\
- $outdir/DPA1.bam $outdir/DPB1.bam $outdir/DQA1.bam $outdir/DQB1.bam $outdir/DRB1.bam
+merge_bams=(); for hla in "${hlas[@]}"; do merge_bams+=("$outdir/$hla.bam"); done
+samtools merge -f -h $outdir/header.sam $outdir/$sample.merge.bam "${merge_bams[@]}"
 samtools index $outdir/$sample.merge.bam
 # ###############################################################################################################
 
@@ -242,9 +251,9 @@ echo "start realignment..."
 echo ""
 echo "Attention: please ensure the platform can run gzip -l automatically, otherwise, it may not continue."
 if [ $focus_exon_flag == 1 ];then #exon
-  assemble_region=$dir/select.region.exon.txt
+  assemble_region=$db/HLA/select.region.exon.txt
 else # full length
-  assemble_region=$dir/select.region.txt
+  assemble_region=$db/HLA/select.region.txt
 fi
 bash $dir/../run.assembly.realign.sh $sample $outdir/$sample.merge.bam $outdir 70 $assemble_region ${num_threads:-5} ${force_fermikit_single_thread:-0}
 freebayes -a -f $hlaref -p 3 $outdir/$sample.realign.sort.bam > $outdir/$sample.realign.vcf && \
@@ -254,10 +263,10 @@ tabix -f $outdir/$sample.realign.vcf.gz
 zcat $outdir/$sample.realign.vcf.gz |grep "#" > $outdir/$sample.realign.filter.vcf
 echo BAM and VCF are ready.
 if [ $focus_exon_flag == 1 ];then #exon
-    bcftools filter -R $dir/exon_extent.bed $outdir/$sample.realign.vcf.gz |grep -v "#" >> $outdir/$sample.realign.filter.vcf || true
+    bcftools filter -R $db/HLA/exon_extent.bed $outdir/$sample.realign.vcf.gz |grep -v "#" >> $outdir/$sample.realign.filter.vcf || true
 else # full length
     bcftools filter\
-     -t HLA_A:1000-4503,HLA_B:1000-5081,HLA_C:1000-5304,HLA_DPA1:1000-10775,HLA_DPB1:1000-12468,HLA_DQA1:1000-7492,HLA_DQB1:1000-8480,HLA_DRB1:1000-12229\
+     -t "$HLA_REGIONS"\
       $outdir/$sample.realign.vcf.gz |grep -v "#" >> $outdir/$sample.realign.filter.vcf || true
 fi
 # #####################################################################################################
@@ -292,14 +301,14 @@ if [ ${long_indel:-False} == True ] && [ $focus_exon_flag != 1 ]; #don't call lo
         pbmm2 align -j ${num_threads:-5} $hlaref ${tgs:-NA} $outdir/$sample.movie1.bam --sort --sample $sample --rg '@RG\tID:movie1'
         samtools view -H $outdir/$sample.movie1.bam >$outdir/header.sam
 
-        hlas=(A B C DPA1 DPB1 DQA1 DQB1 DRB1)
+        hlas=("${HLA_GENES[@]}")
         for hla in ${hlas[@]}; do
                 hla_ref=$db/HLA/HLA_$hla/HLA_$hla.fa
                 pbmm2 align -j ${num_threads:-5} $hla_ref $outdir/$sample/$hla.pacbio.fq.gz $outdir/$hla.gene.bam --sort --sample $sample --rg '@RG\tID:movie1'
                 samtools index $outdir/$hla.gene.bam
         done
-        samtools merge -f -h $outdir/header.sam $outdir/$sample.pacbio.bam $outdir/A.gene.bam $outdir/B.gene.bam $outdir/C.gene.bam\
-        $outdir/DPA1.gene.bam $outdir/DPB1.gene.bam $outdir/DQA1.gene.bam $outdir/DQB1.gene.bam $outdir/DRB1.gene.bam
+        merge_gene_bams=(); for hla in "${hlas[@]}"; do merge_gene_bams+=("$outdir/$hla.gene.bam"); done
+        samtools merge -f -h $outdir/header.sam $outdir/$sample.pacbio.bam "${merge_gene_bams[@]}"
         samtools index $outdir/$sample.pacbio.bam
 
 
@@ -333,7 +342,7 @@ else
 fi
 
 echo Minimum Minor Allele Frequency is $my_maf.
-hlas=(A B C DPA1 DPB1 DQA1 DQB1 DRB1)
+hlas=("${HLA_GENES[@]}")
 for hla in ${hlas[@]}; do
 hla_ref=$db/ref/HLA_$hla.fa
 $python_bin $dir/../phase_variants.py \

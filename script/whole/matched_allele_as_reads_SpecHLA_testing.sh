@@ -126,6 +126,15 @@ fi
 
 bin=$dir/../../bin
 db=$SPECHLA_DB
+
+# The gene content of a run is defined by the reference, never by this script.
+if [ ! -s "$db/HLA/gene_list.txt" ] || [ ! -s "$db/HLA/gene_regions.txt" ]; then
+    echo "Reference at $db has no gene_list.txt/gene_regions.txt; rebuild it with script/build_reference.sh." >&2
+    exit 1
+fi
+HLA_GENES=($(cat "$db/HLA/gene_list.txt"))
+HLA_REGIONS=$(paste -sd, "$db/HLA/gene_regions.txt")
+export SPECHLA_DB="$db"
 hlaref=$db/ref/hla.ref.extend.fa
 
 if [ ${given_outdir:-NA} == NA ]
