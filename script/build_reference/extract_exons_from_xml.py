@@ -5,17 +5,11 @@ import argparse
 import re
 import xml.etree.ElementTree as ET
 
-
-GENES = ("A", "B", "C", "DPA1", "DPB1", "DQA1", "DQB1", "DRB1")
-CLASS_I_GENES = ("A", "B", "C")
-
-# G groups are defined by exon 2 for every gene plus exon 3 for class I only.
-# Emitting further exons would skew the identity sums in g_group_annotation.py.
-G_GROUP_EXONS = {gene: ((2, 3) if gene in CLASS_I_GENES else (2,)) for gene in GENES}
+from _spec import G_GROUP_EXONS, add_spec_arguments, spec_from_args
 
 
-def gene_of(name):
-    for gene in GENES:
+def gene_of(name, genes):
+    for gene in genes:
         if re.match(r"^HLA-%s\*" % gene, name):
             return gene
     return None
@@ -41,17 +35,24 @@ def sequence_text(element):
     return ""
 
 
-def extract(xml_path, output_path):
+def extract(xml_path, output_path, spec):
+    # G groups are defined by exon 2 for every gene plus exon 3 for class I
+    # only. Emitting further exons would skew the identity sums computed by
+    # g_group_annotation.py.
+    wanted_by_gene = dict(
+        (gene, G_GROUP_EXONS[hla_class]) for gene, hla_class, _ in spec
+    )
+    genes = [gene for gene, _, _ in spec]
     with open(output_path, "w") as output:
         for _, element in ET.iterparse(xml_path, events=("end",)):
             if local_name(element.tag).lower() != "allele":
                 continue
             name = allele_name(element)
-            gene = gene_of(name)
+            gene = gene_of(name, genes)
             if gene is None:
                 element.clear()
                 continue
-            wanted_exons = G_GROUP_EXONS[gene]
+            wanted_exons = wanted_by_gene[gene]
             sequence = sequence_text(element)
             if not sequence:
                 element.clear()
@@ -91,8 +92,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--xml", required=True)
     parser.add_argument("--out", required=True)
+    add_spec_arguments(parser)
     args = parser.parse_args()
-    extract(args.xml, args.out)
+    extract(args.xml, args.out, spec_from_args(args))
 
 
 if __name__ == "__main__":

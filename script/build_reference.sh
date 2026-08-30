@@ -8,7 +8,15 @@ Usage: bash script/build_reference.sh --imgt <IMGTHLA_dir> --out <build_dir>
 Required:
   --imgt PATH                 Read-only IMGT/HLA clone
   --out PATH                  Output directory
-  --representative-alleles FILE
+
+Optional:
+  --genes-config FILE         Gene definition table (default: bundled
+                              share/reference_assets/genes.tsv). This file is
+                              the single source of truth for which genes the
+                              reference covers, their HLA class and their
+                              representative allele.
+  --genes LIST                Comma separated subset of the genes in
+                              --genes-config to build (default: all)
   --threads N
   --skip-novoindex
   --force
@@ -17,7 +25,8 @@ EOF
 
 IMGT="${SPECHLA_IMGT:-}"
 OUT=""
-REPRESENTATIVES=""
+GENES_CONFIG=""
+GENES=""
 THREADS=4
 SKIP_NOVOINDEX=0
 FORCE=0
@@ -25,7 +34,8 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --imgt) IMGT="${2:-}"; shift 2 ;;
         --out) OUT="${2:-}"; shift 2 ;;
-        --representative-alleles) REPRESENTATIVES="${2:-}"; shift 2 ;;
+        --genes-config|--representative-alleles) GENES_CONFIG="${2:-}"; shift 2 ;;
+        --genes) GENES="${2:-}"; shift 2 ;;
         --threads) THREADS="${2:-}"; shift 2 ;;
         --skip-novoindex) SKIP_NOVOINDEX=1; shift ;;
         --force) FORCE=1; shift ;;
@@ -57,7 +67,11 @@ fi
 ROOT=$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.." && pwd)
 PYTHON="${PYTHON:-python}"
 ASSETS="${SPECHLA_ASSETS:-$ROOT/share/reference_assets}"
-REPRESENTATIVES="${REPRESENTATIVES:-$ASSETS/representative_alleles.tsv}"
+GENES_CONFIG="${GENES_CONFIG:-$ASSETS/genes.tsv}"
+SPEC_ARGS=(--genes-config "$GENES_CONFIG")
+if [ -n "$GENES" ]; then
+    SPEC_ARGS+=(--genes "$GENES")
+fi
 GEN="$IMGT/hla_gen.fasta"
 if [ ! -f "$GEN" ] && [ -f "$IMGT/hla_gen.fasta.zip" ]; then
     mkdir -p "$OUT/.build_tmp"
@@ -76,10 +90,26 @@ if [ "$FORCE" = 1 ]; then
 fi
 cp "$IMGT/Allelelist.txt" "$OUT/HLA/Allelelist.txt"
 cp "$IMGT/wmda/hla_nom_g.txt" "$OUT/HLA/hla_nom_g.txt"
+
+# Resolve the gene spec once and materialise everything that is derived from
+# it inside the reference, so that no downstream step has to know the gene
+# list, the curated regions or their coordinates.
+"$PYTHON" "$ROOT/script/build_reference/emit_gene_files.py" \
+    "${SPEC_ARGS[@]}" --assets "$ASSETS" --out "$OUT/HLA"
+mapfile -t HLA_GENES < "$OUT/HLA/gene_list.txt"
+if [ "${#HLA_GENES[@]}" -eq 0 ]; then
+    echo "No genes resolved from $GENES_CONFIG" >&2
+    exit 2
+fi
+echo "[build_reference] building genes: ${HLA_GENES[*]}"
+
 "$PYTHON" "$ROOT/script/build_reference/split_by_gene.py" \
+    "${SPEC_ARGS[@]}" \
     --gen "$GEN" --nuc "$IMGT/hla_nuc.fasta" --out "$OUT/HLA"
 
-cp "$OUT/HLA/exon/HLA_DRB1.fasta" "$OUT/HLA/whole/HLA_DRB1.exon.fasta"
+if [ -f "$OUT/HLA/exon/HLA_DRB1.fasta" ]; then
+    cp "$OUT/HLA/exon/HLA_DRB1.fasta" "$OUT/HLA/whole/HLA_DRB1.exon.fasta"
+fi
 
 if command -v samtools >/dev/null 2>&1; then
     for fasta in "$OUT"/HLA/whole/*.fasta "$OUT"/HLA/exon/*.fasta; do
@@ -111,6 +141,14 @@ cp "$ASSETS/DRB1_dup_extract_ref.fasta" "$OUT/ref/"
 cp "$ASSETS/hla_gen.format.filter.extend.DRB.no26789.fasta" "$OUT/ref/"
 cp "$ASSETS/hla_gen.format.filter.extend.DRB.no26789.v2.fasta" "$OUT/ref/"
 
+# Keep the inputs that produced this reference inside the reference itself, so
+# a built database is self describing and can be adjusted and rebuilt without
+# the source tree.
+mkdir -p "$OUT/spec"
+cp "$GENES_CONFIG" "$OUT/spec/genes.tsv"
+cp "$ASSETS/assembly_regions.tsv" "$OUT/spec/assembly_regions.tsv"
+cp "$ASSETS/exon_extent.bed" "$OUT/spec/exon_extent.bed"
+
 XML="$IMGT/xml/hla.xml"
 if [ ! -f "$XML" ]; then
     mkdir -p "$OUT/.build_tmp"
@@ -118,23 +156,29 @@ if [ ! -f "$XML" ]; then
     XML="$OUT/.build_tmp/hla.xml"
 fi
 "$PYTHON" "$ROOT/script/build_reference/extract_exons_from_xml.py" \
+    "${SPEC_ARGS[@]}" \
     --xml "$XML" --out "$OUT/HLA/hla_exons.fasta"
 samtools faidx "$OUT/HLA/hla_exons.fasta"
 makeblastdb -in "$OUT/HLA/hla_exons.fasta" -dbtype nucl -parse_seqids \
     -out "$OUT/HLA/hla_exons.fasta"
 
 "$PYTHON" "$ROOT/script/build_reference/construct_extended.py" \
+    "${SPEC_ARGS[@]}" \
     --gen "$GEN" --extend "$ASSETS/extend.fa" \
-    --representatives "$REPRESENTATIVES" \
     --out "$OUT/HLA/hla.ref.extend.fa" \
+    --reference-json "$OUT/reference.json" \
     --selected-out "$OUT/.build_tmp/selected_representatives.json"
 samtools faidx "$OUT/HLA/hla.ref.extend.fa"
+# reference.json now carries the real per-gene coordinates; publish them for
+# the shell steps as well.
+"$PYTHON" "$ROOT/script/build_reference/emit_gene_files.py" \
+    --reference-json "$OUT/reference.json" --out "$OUT/HLA"
 cp "$OUT/HLA/hla.ref.extend.fa" "$OUT/ref/hla.ref.extend.fa"
 cp "$OUT/HLA/hla.ref.extend.fa.fai" "$OUT/ref/hla.ref.extend.fa.fai"
 bwa index "$OUT/ref/hla.ref.extend.fa"
 samtools dict "$OUT/ref/hla.ref.extend.fa" > "$OUT/ref/hla.ref.extend.dict"
 
-for hla in A B C DPA1 DPB1 DQA1 DQB1 DRB1; do
+for hla in "${HLA_GENES[@]}"; do
     gene_dir="$OUT/HLA/HLA_${hla}"
     mkdir -p "$gene_dir"
     samtools faidx "$OUT/HLA/hla.ref.extend.fa" "HLA_${hla}" > "$gene_dir/HLA_${hla}.fa"
@@ -152,9 +196,8 @@ for hla in A B C DPA1 DPB1 DQA1 DQB1 DRB1; do
         "$gene_dir/HLA_${hla}.fa" "$gene_dir/HLA_${hla}.fa" "$gene_dir" > "$cfg"
 done
 
-# phase_variants.py is invoked with $db/ref/HLA_<gene>.fa, so publish the
-# per-gene references there as well.
-for hla in A B C DPA1 DPB1 DQA1 DQB1 DRB1; do
+# The per-gene reference is also the one phasing loads by gene name.
+for hla in "${HLA_GENES[@]}"; do
     cp "$OUT/HLA/HLA_${hla}/HLA_${hla}.fa" "$OUT/ref/HLA_${hla}.fa"
     cp "$OUT/HLA/HLA_${hla}/HLA_${hla}.fa.fai" "$OUT/ref/HLA_${hla}.fa.fai"
 done
@@ -180,16 +223,18 @@ fi
 IMGT_VERSION=$(awk -F': ' '/^# version:/{print $2; exit}' "$IMGT/Allelelist.txt")
 SPECHLA_REF=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'unknown')
 "$PYTHON" - "$OUT/BUILD_MANIFEST.json" "$IMGT_VERSION" "$IMGT" "$SPECHLA_REF" \
-    "$OUT/.build_tmp/selected_representatives.json" "$ASSETS" <<'PY'
+    "$OUT/.build_tmp/selected_representatives.json" "$ASSETS" "$OUT/reference.json" <<'PY'
 import hashlib
 import json
 import os
 import sys
 from datetime import datetime, timezone
 
-manifest, version, source, ref, selected_path, assets = sys.argv[1:]
+manifest, version, source, ref, selected_path, assets, reference_path = sys.argv[1:]
 with open(selected_path) as handle:
     selected = json.load(handle)
+with open(reference_path) as handle:
+    reference = json.load(handle)
 asset_hashes = {}
 for name in os.listdir(assets):
     path = os.path.join(assets, name)
@@ -205,6 +250,10 @@ payload = {
     "built_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     "spechla_ref": ref,
     "representative_alleles": selected,
+    "genes": [entry["gene"] for entry in reference["genes"]],
+    "gene_regions": {
+        entry["name"]: [entry["start"], entry["end"]] for entry in reference["genes"]
+    },
     "bundled_assets_sha256": asset_hashes,
 }
 with open(manifest, "w") as handle:

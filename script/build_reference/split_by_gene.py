@@ -4,8 +4,7 @@
 import argparse
 import os
 
-
-GENES = ("A", "B", "C", "DPA1", "DPB1", "DQA1", "DQB1", "DRB1")
+from _spec import add_spec_arguments, spec_from_args
 
 
 def read_fasta(path):
@@ -33,7 +32,7 @@ def gene_from_allele(allele):
     return allele.split("*", 1)[0] if "*" in allele else None
 
 
-def split_gen(path, output_dir, genes=GENES):
+def split_gen(path, output_dir, genes):
     records = {gene: [] for gene in genes}
     for header, sequence in read_fasta(path):
         fields = header.split()
@@ -49,7 +48,7 @@ def split_gen(path, output_dir, genes=GENES):
                 out.write(">%s\n%s\n" % (allele, sequence))
 
 
-def split_nuc(path, output_dir, genes=GENES):
+def split_nuc(path, output_dir, genes):
     records = {gene: [] for gene in genes}
     for header, sequence in read_fasta(path):
         fields = header.split()
@@ -70,11 +69,13 @@ def main():
     parser.add_argument("--gen", required=True)
     parser.add_argument("--nuc", required=True)
     parser.add_argument("--out", required=True)
+    add_spec_arguments(parser)
     args = parser.parse_args()
+    genes = [gene for gene, _, _ in spec_from_args(args)]
     os.makedirs(os.path.join(args.out, "whole"), exist_ok=True)
     os.makedirs(os.path.join(args.out, "exon"), exist_ok=True)
-    split_gen(args.gen, args.out)
-    split_nuc(args.nuc, args.out)
+    split_gen(args.gen, args.out, genes)
+    split_nuc(args.nuc, args.out, genes)
 
 
 if __name__ == "__main__":
