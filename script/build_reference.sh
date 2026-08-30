@@ -152,6 +152,13 @@ for hla in A B C DPA1 DPB1 DQA1 DQB1 DRB1; do
         "$gene_dir/HLA_${hla}.fa" "$gene_dir/HLA_${hla}.fa" "$gene_dir" > "$cfg"
 done
 
+# phase_variants.py is invoked with $db/ref/HLA_<gene>.fa, so publish the
+# per-gene references there as well.
+for hla in A B C DPA1 DPB1 DQA1 DQB1 DRB1; do
+    cp "$OUT/HLA/HLA_${hla}/HLA_${hla}.fa" "$OUT/ref/HLA_${hla}.fa"
+    cp "$OUT/HLA/HLA_${hla}/HLA_${hla}.fa.fai" "$OUT/ref/HLA_${hla}.fa.fai"
+done
+
 samtools faidx "$OUT/ref/DRB1_dup_extract.fasta"
 makeblastdb -in "$OUT/ref/DRB1_dup_extract_ref.fasta" -dbtype nucl -parse_seqids \
     -out "$OUT/ref/DRB1_dup_extract_ref.fasta"
