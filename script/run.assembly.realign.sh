@@ -21,7 +21,7 @@ dir=$(cd $script_path; pwd)
 source "$dir/spechla_env.sh"
 
 sdir=$dir/../bin
-db=${SPECHLA_DB:-$dir/../db}
+db=$SPECHLA_DB
 hla_fa=$db/ref/hla.ref.extend.fa
 
 exec >$outdir/$sample.local_assem.log 2>&1 #redirect log info to the outdir
@@ -87,4 +87,3 @@ python3 $dir/realignblast.py -i $bam -o $outdir/$sample.realign.bam -r $outdir/r
 samtools sort --threads $thread $outdir/$sample.realign.bam > $outdir/$sample.realign.sort.bam
 #java -jar $sdir/picard.jar FixMateInformation I=$outdir/$sample.realign.sort.bam O=$outdir/$sample.realign.sort.fixmate.bam
 samtools index $outdir/$sample.realign.sort.bam
-
