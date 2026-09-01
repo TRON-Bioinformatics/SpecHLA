@@ -29,28 +29,13 @@ cd "${SRC_DIR}"
 mkdir -p "${SHARE_DIR}/script"
 cp -r script/* "${SHARE_DIR}/script/"
 
-# --- Install database to share dir ---
-mkdir -p "${SHARE_DIR}/db"
-cp -r db/* "${SHARE_DIR}/db/"
+# --- Install reference construction assets ---
+mkdir -p "${SHARE_DIR}/reference_assets"
+cp -r share/reference_assets/* "${SHARE_DIR}/reference_assets/"
 
 # --- Install utility scripts to bin ---
 install -m 755 bin/blast2sam.pl "${PREFIX}/bin/"
 install -m 755 bin/vcf-combine.py "${PREFIX}/bin/"
-
-# --- Generate HLA config files ---
-HLAs=(A B C DPA1 DPB1 DQA1 DQB1 DRB1)
-for hla in ${HLAs[@]}; do
-    config_file="${SHARE_DIR}/db/HLA/HLA_${hla}.config.txt"
-    echo "bwa=${SHARE_DIR}/db/HLA/HLA_${hla}/HLA_${hla}.fa" >"$config_file"
-    echo "freebayes=${SHARE_DIR}/db/HLA/HLA_${hla}/HLA_${hla}.fa" >>"$config_file"
-    echo "blat=${SHARE_DIR}/db/HLA/HLA_${hla}/" >>"$config_file"
-done
-
-# --- Build bowtie2 indexes ---
-bowtie2-build "${SHARE_DIR}/db/ref/hla_gen.format.filter.extend.DRB.no26789.fasta" \
-    "${SHARE_DIR}/db/ref/hla_gen.format.filter.extend.DRB.no26789.fasta"
-bowtie2-build "${SHARE_DIR}/db/ref/hla_gen.format.filter.extend.DRB.no26789.v2.fasta" \
-    "${SHARE_DIR}/db/ref/hla_gen.format.filter.extend.DRB.no26789.v2.fasta"
 
 # --- Install wrapper: spechla ---
 cat > "${PREFIX}/bin/spechla" << 'EOF'
@@ -101,3 +86,13 @@ export SPECHLA_SCRIPT="${SPECHLA_SCRIPT:-${CONDA_PREFIX}/share/spechla/script}"
 exec perl "${SPECHLA_SCRIPT}/cal.hla.copy.pl" "$@"
 EOF
 chmod +x "${PREFIX}/bin/spechla-loh"
+
+# --- Install wrapper: spechla-build-reference ---
+cat > "${PREFIX}/bin/spechla-build-reference" << 'EOF'
+#!/bin/bash
+set -euo pipefail
+export SPECHLA_SCRIPT="${SPECHLA_SCRIPT:-${CONDA_PREFIX}/share/spechla/script}"
+export SPECHLA_ASSETS="${SPECHLA_ASSETS:-${CONDA_PREFIX}/share/spechla/reference_assets}"
+exec python3 "${SPECHLA_SCRIPT}/build_reference.py" "$@"
+EOF
+chmod +x "${PREFIX}/bin/spechla-build-reference"
