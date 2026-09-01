@@ -6,9 +6,10 @@ release into the directory layout the pipeline expects:
 
     <out>/HLA/whole/HLA_<gene>.fasta   full-length allele database per gene
     <out>/HLA/exon/HLA_<gene>.fasta    coding-sequence database per gene
+    <out>/HLA/hla_exons.fasta          G-group defining exons, from the XML release
 
-Further stages of the reference (the exon reference, the extended alignment
-reference and the read extraction indexes) are added on top of this layout.
+The extended alignment reference and the read extraction indexes are added on
+top of this layout.
 
 Point SPECHLA_DB at the output directory afterwards, or build straight into the
 default location reported by ``--help``.
@@ -24,7 +25,7 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import spechla_paths  # noqa: E402  (needs the path above to be importable)
-from reference_build import split_by_gene  # noqa: E402
+from reference_build import extract_exons, split_by_gene  # noqa: E402
 from reference_build.genes import GENES  # noqa: E402
 
 # Files a usable IMGT/HLA checkout must provide. hla_gen.fasta and hla.xml are
@@ -168,6 +169,16 @@ def build_gene_databases(gen_fasta, nuc_fasta, hla_dir):
         makeblastdb(fasta_path, fasta_path)
 
 
+def build_exon_reference(xml_path, hla_dir):
+    """Derive and index the G-group defining exon reference from the XML release."""
+    exon_reference = os.path.join(hla_dir, "hla_exons.fasta")
+    log("extracting G-group exons from %s" % xml_path)
+    extract_exons.extract_exons(xml_path, exon_reference, GENES)
+    samtools_faidx(exon_reference)
+    makeblastdb(exon_reference, exon_reference)
+    return exon_reference
+
+
 # --- Command line -----------------------------------------------------------
 
 
@@ -210,10 +221,12 @@ def main(argv=None):
 
     hla_dir, _ref_dir, temp_dir = prepare_output_dir(args.out)
     gen_fasta = unpacked_imgt_file(imgt_dir, "hla_gen.fasta", temp_dir)
+    xml_path = unpacked_imgt_file(imgt_dir, os.path.join("xml", "hla.xml"), temp_dir)
 
     log("building reference from %s into %s" % (imgt_dir, args.out))
     copy_allele_metadata(imgt_dir, hla_dir)
     build_gene_databases(gen_fasta, os.path.join(imgt_dir, "hla_nuc.fasta"), hla_dir)
+    build_exon_reference(xml_path, hla_dir)
 
     shutil.rmtree(temp_dir, ignore_errors=True)
     log("reference ready; run: export SPECHLA_DB=%s" % os.path.abspath(args.out))
