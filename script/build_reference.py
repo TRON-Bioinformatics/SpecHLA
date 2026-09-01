@@ -11,17 +11,21 @@ release into the directory layout the pipeline expects:
     <out>/HLA/HLA_<gene>/              per-gene alignment reference and indexes
     <out>/HLA/HLA_<gene>.config.txt    tool paths consumed by the phasing steps
     <out>/ref/                         references and indexes for read extraction
+    <out>/BUILD_MANIFEST.json          provenance of the produced reference
 
 Point SPECHLA_DB at the output directory afterwards, or build straight into the
 default location reported by ``--help``.
 """
 
 import argparse
+import hashlib
+import json
 import os
 import shutil
 import subprocess
 import sys
 import zipfile
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -125,6 +129,17 @@ def unpacked_imgt_file(imgt_dir, relative_path, temp_dir):
         raise SystemExit("%s did not contain %s"
                          % (archive, os.path.basename(relative_path)))
     return unpacked
+
+
+def imgt_version(imgt_dir):
+    """Return the release version recorded in the checkout's Allelelist.txt."""
+    with open(os.path.join(imgt_dir, "Allelelist.txt")) as handle:
+        for line in handle:
+            if line.startswith("# version:"):
+                return line.split(":", 1)[1].strip()
+            if not line.startswith("#"):
+                break
+    return "unknown"
 
 
 # --- Indexing helpers -------------------------------------------------------
@@ -293,6 +308,55 @@ def build_linked_read_reference(ref_dir):
     run(["longranger", "mkref", "hla.ref.extend.fa"], cwd=ref_dir)
 
 
+# --- Provenance -------------------------------------------------------------
+
+
+def sha256_of(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def spechla_revision():
+    """Return the SpecHLA commit the reference was built with, if known."""
+    source_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        revision = subprocess.check_output(
+            ["git", "-C", source_root, "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return revision.decode().strip()
+
+
+def write_build_manifest(out_dir, imgt_dir, assets_dir, selected_alleles):
+    """Record what a reference was built from so results stay traceable.
+
+    Generated references are not version controlled, so the manifest is the
+    only way to tell which IMGT release, bundled assets and representative
+    alleles produced a given directory.
+    """
+    manifest = {
+        "imgt_version": imgt_version(imgt_dir),
+        "imgt_source": os.path.abspath(imgt_dir),
+        "built_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "spechla_ref": spechla_revision(),
+        "representative_alleles": selected_alleles,
+        "bundled_assets_sha256": {
+            name: sha256_of(os.path.join(assets_dir, name))
+            for name in sorted(os.listdir(assets_dir))
+            if os.path.isfile(os.path.join(assets_dir, name))
+        },
+    }
+    path = os.path.join(out_dir, "BUILD_MANIFEST.json")
+    with open(path, "w") as handle:
+        json.dump(manifest, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return path
+
+
 # --- Command line -----------------------------------------------------------
 
 
@@ -375,11 +439,12 @@ def main(argv=None):
     build_gene_databases(gen_fasta, os.path.join(imgt_dir, "hla_nuc.fasta"), hla_dir)
     copy_bundled_assets(assets_dir, hla_dir, ref_dir)
     build_exon_reference(xml_path, hla_dir)
-    extended, _selected = build_extended_reference(
+    extended, selected = build_extended_reference(
         gen_fasta, assets_dir, representatives, hla_dir, ref_dir)
     build_per_gene_references(extended, hla_dir)
     index_extraction_references(ref_dir, args.threads, args.skip_novoindex)
     build_linked_read_reference(ref_dir)
+    write_build_manifest(args.out, imgt_dir, assets_dir, selected)
 
     shutil.rmtree(temp_dir, ignore_errors=True)
     log("reference ready; run: export SPECHLA_DB=%s" % os.path.abspath(args.out))
