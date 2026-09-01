@@ -7,9 +7,10 @@ release into the directory layout the pipeline expects:
     <out>/HLA/whole/HLA_<gene>.fasta   full-length allele database per gene
     <out>/HLA/exon/HLA_<gene>.fasta    coding-sequence database per gene
     <out>/HLA/hla_exons.fasta          G-group defining exons, from the XML release
-
-The extended alignment reference and the read extraction indexes are added on
-top of this layout.
+    <out>/HLA/hla.ref.extend.fa        one flank-padded record per gene
+    <out>/HLA/HLA_<gene>/              per-gene alignment reference and indexes
+    <out>/HLA/HLA_<gene>.config.txt    tool paths consumed by the phasing steps
+    <out>/ref/                         references and indexes for read extraction
 
 Point SPECHLA_DB at the output directory afterwards, or build straight into the
 default location reported by ``--help``.
@@ -25,13 +26,24 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import spechla_paths  # noqa: E402  (needs the path above to be importable)
-from reference_build import extract_exons, split_by_gene  # noqa: E402
+from reference_build import construct_extended, extract_exons, split_by_gene  # noqa: E402
 from reference_build.genes import GENES  # noqa: E402
 
 # Files a usable IMGT/HLA checkout must provide. hla_gen.fasta and hla.xml are
 # handled separately because IMGT ships them zipped in some releases.
 REQUIRED_IMGT_FILES = ("hla_nuc.fasta", "Allelelist.txt", "wmda/hla_nom_g.txt")
 
+# Bundled inputs that are copied verbatim into the built reference.
+ASSETS_FOR_HLA_DIR = ("extend.fa", "HLA_FREQ_HLA_I_II.txt")
+ASSETS_FOR_REF_DIR = (
+    "DRB1_dup_extract.fasta",
+    "DRB1_dup_extract_ref.fasta",
+    "hla_gen.format.filter.extend.DRB.no26789.fasta",
+    "hla_gen.format.filter.extend.DRB.no26789.v2.fasta",
+)
+
+# Presence of this index is used as the marker of a previously finished build.
+BUILD_COMPLETE_MARKER = os.path.join("ref", "hla.ref.extend.fa.bwt")
 
 TEMP_DIR_NAME = ".build_tmp"
 
@@ -179,6 +191,108 @@ def build_exon_reference(xml_path, hla_dir):
     return exon_reference
 
 
+def copy_bundled_assets(assets_dir, hla_dir, ref_dir):
+    """Copy the immutable inputs that cannot be derived from IMGT/HLA."""
+    for name in ASSETS_FOR_HLA_DIR:
+        shutil.copy2(os.path.join(assets_dir, name), os.path.join(hla_dir, name))
+    for name in ASSETS_FOR_REF_DIR:
+        shutil.copy2(os.path.join(assets_dir, name), os.path.join(ref_dir, name))
+
+
+def build_extended_reference(gen_fasta, assets_dir, representatives, hla_dir, ref_dir):
+    """Build the flank-padded per-gene reference and its alignment indexes.
+
+    The same FASTA is published under ``HLA/`` for the typing steps and under
+    ``ref/`` for read extraction, which expects a BWA index and a sequence
+    dictionary alongside it.
+    """
+    extended = os.path.join(hla_dir, "hla.ref.extend.fa")
+    selected = construct_extended.construct_extended_reference(
+        gen_fasta=gen_fasta,
+        extend_fasta=os.path.join(assets_dir, "extend.fa"),
+        representatives_file=representatives,
+        output_path=extended,
+        genes=GENES,
+        log=log,
+    )
+    samtools_faidx(extended)
+
+    published = os.path.join(ref_dir, "hla.ref.extend.fa")
+    shutil.copy2(extended, published)
+    shutil.copy2(extended + ".fai", published + ".fai")
+    run(["bwa", "index", published])
+    with open(os.path.join(ref_dir, "hla.ref.extend.dict"), "w") as dict_file:
+        subprocess.check_call(["samtools", "dict", published], stdout=dict_file)
+    return extended, selected
+
+
+def build_per_gene_references(extended_reference, hla_dir):
+    """Split the extended reference into the per-gene alignment references.
+
+    Phasing and assembly realign reads gene by gene and read the tool paths
+    from HLA_<gene>.config.txt, which is generated here so the config always
+    matches the reference that was just built.
+    """
+    for gene in GENES:
+        gene_dir = os.path.join(hla_dir, "HLA_%s" % gene)
+        os.makedirs(gene_dir, exist_ok=True)
+        gene_fasta = os.path.join(gene_dir, "HLA_%s.fa" % gene)
+        with open(gene_fasta, "w") as output:
+            subprocess.check_call(
+                ["samtools", "faidx", extended_reference, "HLA_%s" % gene],
+                stdout=output)
+        samtools_faidx(gene_fasta)
+        run(["bwa", "index", gene_fasta])
+        makeblastdb(gene_fasta, os.path.join(gene_dir, "HLA_%s" % gene))
+        if tool_available("faToTwoBit"):
+            run(["faToTwoBit", gene_fasta,
+                 os.path.join(gene_dir, "HLA_%s.2bit" % gene)])
+        else:
+            log("faToTwoBit not on PATH; skipping HLA_%s.2bit (blat realignment "
+                "will be unavailable)" % gene)
+        with open(os.path.join(hla_dir, "HLA_%s.config.txt" % gene), "w") as config:
+            config.write("bwa=%s\nfreebayes=%s\nblat=%s/\n"
+                         % (gene_fasta, gene_fasta, gene_dir))
+
+
+def index_extraction_references(ref_dir, threads, skip_novoindex):
+    """Index the bundled references used to pull HLA reads out of a BAM.
+
+    Novoalign is licensed software: its index is only built when both the
+    binary and a license file are present, and Bowtie2 is always indexed as the
+    freely available fallback aligner.
+    """
+    samtools_faidx(os.path.join(ref_dir, "DRB1_dup_extract.fasta"))
+    duplicate_reference = os.path.join(ref_dir, "DRB1_dup_extract_ref.fasta")
+    makeblastdb(duplicate_reference, duplicate_reference)
+
+    for name in ASSETS_FOR_REF_DIR:
+        if not name.startswith("hla_gen.format.filter.extend.DRB.no26789"):
+            continue
+        fasta_path = os.path.join(ref_dir, name)
+        samtools_faidx(fasta_path)
+        if not skip_novoindex and novoalign_licensed():
+            run(["novoindex", "-k", "14", "-s", "1",
+                 os.path.splitext(fasta_path)[0] + ".ndx", fasta_path])
+        run(["bowtie2-build", "--threads", str(threads), fasta_path, fasta_path])
+
+
+def novoalign_licensed():
+    """Return whether a licensed novoalign installation is available."""
+    novoalign = shutil.which("novoalign")
+    if not novoalign:
+        return False
+    return os.path.isfile(os.path.join(os.path.dirname(novoalign), "novoalign.lic"))
+
+
+def build_linked_read_reference(ref_dir):
+    """Create the Long Ranger reference needed for 10X linked-read input."""
+    if not tool_available("longranger"):
+        log("longranger not on PATH; 10X input will require a manual mkref")
+        return
+    run(["longranger", "mkref", "hla.ref.extend.fa"], cwd=ref_dir)
+
+
 # --- Command line -----------------------------------------------------------
 
 
@@ -195,6 +309,26 @@ def parse_arguments(argv=None):
         help="Directory to write the reference to; point SPECHLA_DB here "
              "afterwards (default: $SPECHLA_DB or "
              "$CONDA_PREFIX/share/spechla/db).")
+    parser.add_argument(
+        "--assets", metavar="DIR", default=None,
+        help="Bundled reference construction assets, i.e. the flanks and "
+             "prebuilt extraction references that cannot be derived from IMGT "
+             "(default: $SPECHLA_ASSETS or share/reference_assets).")
+    parser.add_argument(
+        "--representative-alleles", metavar="FILE", default=None,
+        help="TSV pinning one representative allele per gene, used as the "
+             "backbone of the extended reference "
+             "(default: representative_alleles.tsv from the assets directory).")
+    parser.add_argument(
+        "--threads", type=int, default=4, metavar="N",
+        help="Threads to use for bowtie2-build (default: %(default)s).")
+    parser.add_argument(
+        "--skip-novoindex", action="store_true",
+        help="Do not build the Novoalign index even if a licensed novoalign "
+             "is installed; Bowtie2 is used for read extraction instead.")
+    parser.add_argument(
+        "--force", action="store_true",
+        help="Rebuild into an output directory that already holds a reference.")
     args = parser.parse_args(argv)
     if not args.out:
         parser.error("--out is required when neither SPECHLA_DB nor "
@@ -202,31 +336,50 @@ def parse_arguments(argv=None):
     return args
 
 
-def prepare_output_dir(out_dir):
-    """Create the directory layout the build stages write into."""
+def prepare_output_dir(out_dir, force):
+    """Create the output layout, refusing to silently overwrite a build."""
+    if os.path.exists(os.path.join(out_dir, BUILD_COMPLETE_MARKER)) and not force:
+        raise SystemExit("Reference already exists at %s; use --force to rebuild"
+                         % out_dir)
     hla_dir = os.path.join(out_dir, "HLA")
     ref_dir = os.path.join(out_dir, "ref")
     temp_dir = os.path.join(out_dir, TEMP_DIR_NAME)
     for path in (hla_dir, ref_dir, temp_dir):
         os.makedirs(path, exist_ok=True)
+    if force:
+        # Drop the previous reference so a failed rebuild cannot be mistaken
+        # for a complete one.
+        for stale in (os.path.join(hla_dir, "hla.ref.extend.fa"),
+                      os.path.join(ref_dir, "hla.ref.extend.fa")):
+            if os.path.exists(stale):
+                os.remove(stale)
     return hla_dir, ref_dir, temp_dir
 
 
 def main(argv=None):
     args = parse_arguments(argv)
-    require_tools("samtools", "makeblastdb")
+    require_tools("samtools", "makeblastdb", "bwa", "bowtie2-build")
 
     imgt_dir = resolve_imgt_dir(args.imgt)
     validate_imgt_dir(imgt_dir)
+    assets_dir = args.assets or spechla_paths.get_assets_dir()
+    representatives = (args.representative_alleles
+                       or os.path.join(assets_dir, "representative_alleles.tsv"))
 
-    hla_dir, _ref_dir, temp_dir = prepare_output_dir(args.out)
+    hla_dir, ref_dir, temp_dir = prepare_output_dir(args.out, args.force)
     gen_fasta = unpacked_imgt_file(imgt_dir, "hla_gen.fasta", temp_dir)
     xml_path = unpacked_imgt_file(imgt_dir, os.path.join("xml", "hla.xml"), temp_dir)
 
     log("building reference from %s into %s" % (imgt_dir, args.out))
     copy_allele_metadata(imgt_dir, hla_dir)
     build_gene_databases(gen_fasta, os.path.join(imgt_dir, "hla_nuc.fasta"), hla_dir)
+    copy_bundled_assets(assets_dir, hla_dir, ref_dir)
     build_exon_reference(xml_path, hla_dir)
+    extended, _selected = build_extended_reference(
+        gen_fasta, assets_dir, representatives, hla_dir, ref_dir)
+    build_per_gene_references(extended, hla_dir)
+    index_extraction_references(ref_dir, args.threads, args.skip_novoindex)
+    build_linked_read_reference(ref_dir)
 
     shutil.rmtree(temp_dir, ignore_errors=True)
     log("reference ready; run: export SPECHLA_DB=%s" % os.path.abspath(args.out))
